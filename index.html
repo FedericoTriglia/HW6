@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="An interactive chi-square test of independence for two categorical variables.">
+  <title>Statistical Independence — Chi-Square Test</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5c667a;
+      --line: #dce2eb;
+      --paper: #ffffff;
+      --canvas: #f4f6fa;
+      --accent: #3157a4;
+      --accent-dark: #24437f;
+      --soft-blue: #edf3ff;
+      --soft-green: #eaf6ef;
+      --soft-amber: #fff5df;
+      --soft-red: #fff0ef;
+      --shadow: 0 8px 28px rgba(20, 35, 65, .07);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 15px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      background: linear-gradient(135deg, #172b50, #3157a4);
+      color: white;
+      padding: 42px 22px 36px;
+    }
+    .hero, main { max-width: 1160px; margin: 0 auto; }
+    .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; font-weight: 700; opacity: .82; }
+    h1 { margin: 8px 0 8px; font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.12; }
+    header p { max-width: 760px; margin: 0; color: #e4ebfa; }
+    main { padding: 26px 20px 54px; }
+    .panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 22px;
+      margin: 0 0 20px;
+      box-shadow: var(--shadow);
+    }
+    h2 { margin: 0 0 14px; font-size: 1.3rem; }
+    h3 { margin: 25px 0 10px; font-size: 1.03rem; }
+    p { margin: 8px 0; }
+    .muted, .hint { color: var(--muted); }
+    .hint { font-size: .9rem; }
+    label { display: block; font-weight: 650; margin-bottom: 7px; }
+    textarea {
+      width: 100%; min-height: 230px; resize: vertical; padding: 13px 14px;
+      border: 1px solid #c8d1df; border-radius: 9px; background: #fbfcfe;
+      color: var(--ink); font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    textarea:focus, select:focus, button:focus-visible {
+      outline: 3px solid rgba(49, 87, 164, .2); outline-offset: 2px;
+      border-color: var(--accent);
+    }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 16px 24px; margin-top: 16px; }
+    .control-group { min-width: 160px; }
+    select {
+      border: 1px solid #c8d1df; border-radius: 8px; background: white;
+      padding: 9px 32px 9px 10px; color: var(--ink); font: inherit;
+    }
+    .check { display: flex; gap: 9px; align-items: center; font-weight: 500; margin: 0; }
+    .check input { width: 17px; height: 17px; accent-color: var(--accent); }
+    .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    button {
+      border: 0; border-radius: 9px; padding: 10px 16px; cursor: pointer;
+      font: 650 .94rem system-ui, sans-serif; transition: background .15s ease, transform .15s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .primary { background: var(--accent); color: white; }
+    .primary:hover { background: var(--accent-dark); }
+    .secondary { background: #edf0f5; color: #26344e; }
+    .secondary:hover { background: #e1e6ef; }
+    #status { margin-top: 14px; padding: 11px 13px; border-radius: 8px; display: none; }
+    #status.error { display: block; background: var(--soft-red); color: #8a2520; border: 1px solid #f0c5c1; }
+    #status.info { display: block; background: var(--soft-blue); color: #24437f; border: 1px solid #d3def5; }
+    #results[hidden] { display: none; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0 20px; }
+    .metric { border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; background: #fcfdff; }
+    .metric .name { display: block; color: var(--muted); font-size: .83rem; }
+    .metric .value { display: block; margin-top: 3px; font-size: 1.35rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .decision { border-radius: 10px; padding: 14px 16px; margin: 16px 0; }
+    .decision.reject { background: var(--soft-green); border: 1px solid #c4e4ce; }
+    .decision.retain { background: var(--soft-amber); border: 1px solid #f0dfb3; }
+    .decision strong { display: block; margin-bottom: 3px; }
+    .warning { border: 1px solid #eddaa9; background: var(--soft-amber); color: #664b13; padding: 12px 14px; border-radius: 9px; margin: 14px 0; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
+    table { width: 100%; border-collapse: collapse; min-width: 480px; font-variant-numeric: tabular-nums; }
+    th, td { padding: 9px 11px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    th { background: #f0f3f8; color: #2a3851; font-size: .87rem; font-weight: 700; }
+    td:first-child, th:first-child { text-align: left; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tfoot td { background: #f7f9fc; font-weight: 700; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .formula {
+      background: #f6f8fc; border-left: 3px solid var(--accent); padding: 12px 14px;
+      border-radius: 0 8px 8px 0; font-family: Georgia, "Times New Roman", serif; overflow-wrap: anywhere;
+    }
+    .small { font-size: .88rem; }
+    .pdf-viewer {
+      display: block;
+      width: 100%;
+      height: min(82vh, 980px);
+      min-height: 620px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f7f9fc;
+    }
+    .pdf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
+    footer { text-align: center; color: var(--muted); padding: 0 16px 28px; font-size: .84rem; }
+    @media (max-width: 760px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-col { grid-template-columns: 1fr; gap: 4px; }
+      .panel { padding: 17px; }
+    }
+    @media (max-width: 420px) {
+      main { padding-left: 12px; padding-right: 12px; }
+      header { padding-left: 18px; padding-right: 18px; }
+      .summary-grid { gap: 8px; }
+      .metric .value { font-size: 1.15rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div class="eyebrow">Statistics · Interactive analysis</div>
+      <h1>Statistical Independence</h1>
+      <p>Build a contingency table for two categorical variables, inspect marginal and conditional frequencies, and perform Pearson's chi-square test of independence.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="input-heading">
+      <h2 id="input-heading">1. Enter a bivariate dataset</h2>
+      <p class="muted">Paste one observation per line, with exactly two columns. The first column is variable X and the second is variable F. Commas, semicolons, and tabs are supported; quoted values are allowed.</p>
+      <label for="dataset">CSV data</label>
+      <textarea id="dataset" spellcheck="false" aria-describedby="data-help"></textarea>
+      <p id="data-help" class="hint">The example concerns study method and exam outcome. It contains 120 observations and is loaded automatically.</p>
+      <div class="controls">
+        <div class="control-group">
+          <label for="alpha">Significance level (α)</label>
+          <select id="alpha">
+            <option value="0.10">0.10</option>
+            <option value="0.05" selected>0.05</option>
+            <option value="0.01">0.01</option>
+          </select>
+        </div>
+        <label class="check"><input id="hasHeader" type="checkbox" checked> First row contains variable names</label>
+      </div>
+      <div class="buttons">
+        <button class="primary" id="analyzeBtn" type="button">Analyze dataset</button>
+        <button class="secondary" id="sampleBtn" type="button">Restore sample data</button>
+        <button class="secondary" id="downloadBtn" type="button" disabled>Download results (CSV)</button>
+      </div>
+      <div id="status" role="alert" aria-live="polite"></div>
+    </section>
+
+    <section id="results" class="panel" aria-labelledby="results-heading" hidden>
+      <h2 id="results-heading">2. Results</h2>
+      <p id="dataset-description" class="muted"></p>
+      <div id="metrics" class="summary-grid" aria-live="polite"></div>
+      <div id="decision" class="decision" role="status" aria-live="polite"></div>
+      <div id="assumption-warning"></div>
+
+      <h3>Marginal frequencies</h3>
+      <p class="hint">The marginal frequency of each category is its total count divided by N.</p>
+      <div id="marginal-table" class="table-wrap"></div>
+
+      <h3>Observed contingency table</h3>
+      <p class="hint">Each cell contains an observed count. The final column and row show the row and column totals.</p>
+      <div id="observed-table" class="table-wrap"></div>
+
+      <div class="two-col">
+        <div>
+          <h3>Conditional frequencies: P(F | X)</h3>
+          <p class="hint">Within each row, percentages sum to 100% (up to rounding).</p>
+          <div id="row-conditional" class="table-wrap"></div>
+        </div>
+        <div>
+          <h3>Conditional frequencies: P(X | F)</h3>
+          <p class="hint">Within each column, percentages sum to 100% (up to rounding).</p>
+          <div id="column-conditional" class="table-wrap"></div>
+        </div>
+      </div>
+
+      <h3>Expected frequencies under H₀: independence</h3>
+      <p class="hint">The Pearson contribution of each cell is (O − E)² / E. The test statistic is the sum of all cell contributions.</p>
+      <div id="expected-table" class="table-wrap"></div>
+
+      <h3>Interpretation and limitations</h3>
+      <p id="interpretation"></p>
+      <p class="small muted">A statistically significant result indicates evidence of association, not proof that one variable causes the other. The chi-square test detects departures from independence but does not identify a causal mechanism or the direction of an effect.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="method-heading">
+      <h2 id="method-heading">3. Statistical method</h2>
+      <p>For observed count O<sub>ij</sub>, row total n<sub>i·</sub>, column total n<sub>·j</sub>, and sample size N, the expected count under independence is:</p>
+      <div class="formula">E<sub>ij</sub> = (n<sub>i·</sub> × n<sub>·j</sub>) / N</div>
+      <p>The Pearson chi-square statistic and its degrees of freedom are:</p>
+      <div class="formula">χ² = Σ<sub>i</sub> Σ<sub>j</sub> (O<sub>ij</sub> − E<sub>ij</sub>)² / E<sub>ij</sub>, &nbsp; df = (r − 1)(c − 1)</div>
+      <p class="small muted">The null hypothesis states that X and F are independent in the population. The alternative states that they are associated. The p-value is the upper-tail probability P(Χ²<sub>df</sub> ≥ χ²<sub>observed</sub>) under the null hypothesis.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="theory-pdf-heading">
+      <h2 id="theory-pdf-heading">4. Theoretical report (PDF)</h2>
+      <p class="muted">The theoretical part of this homework is available below. The PDF is loaded from <code>HW6.pdf</code> in the root directory of this GitHub Pages repository.</p>
+      <iframe
+        class="pdf-viewer"
+        src="./HW6.pdf"
+        title="Theoretical report — Statistical Independence"
+        loading="lazy"
+      >
+        <p>Your browser cannot display embedded PDF files. <a href="./HW6.pdf" target="_blank" rel="noopener">Open the theoretical report (PDF)</a>.</p>
+      </iframe>
+      <div class="pdf-actions">
+        <a href="./HW6.pdf" target="_blank" rel="noopener">Open PDF in a new tab</a>
+        <span class="hint">Make sure <strong>HW6.pdf</strong> is uploaded to the same repository directory as this <code>index.html</code>.</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>Interactive implementation · HTML, CSS, and vanilla JavaScript · Theoretical report embedded from HW6.pdf</footer>
+
+  <script>
+    "use strict";
+
+    // Create a reproducible raw-observation example from compact cell counts.
+    function buildSampleData() {
+      const lines = ["Study Method,Exam Outcome"];
+      const cells = [
+        ["Flashcards", "Pass", 28], ["Flashcards", "Fail", 12],
+        ["Notes", "Pass", 20],      ["Notes", "Fail", 20],
+        ["Practice", "Pass", 32],   ["Practice", "Fail", 8]
+      ];
+      for (const [method, outcome, count] of cells) {
+        for (let i = 0; i < count; i++) lines.push(`${method},${outcome}`);
+      }
+      return lines.join("\n");
+    }
+
+    const datasetInput = document.getElementById("dataset");
+    const statusBox = document.getElementById("status");
+    const resultsSection = document.getElementById("results");
+    let lastAnalysis = null;
+
+    datasetInput.value = buildSampleData();
+
+    function detectDelimiter(text) {
+      const firstLine = text.split(/\r?\n/).find(line => line.trim().length > 0) || "";
+      const candidates = [",", ";", "\t"];
+      let best = ",";
+      let bestCount = -1;
+      for (const delimiter of candidates) {
+        let count = 0;
+        let inQuotes = false;
+        for (let i = 0; i < firstLine.length; i++) {
+          const ch = firstLine[i];
+          if (ch === '"') {
+            if (inQuotes && firstLine[i + 1] === '"') i++;
+            else inQuotes = !inQuotes;
+          } else if (ch === delimiter && !inQuotes) {
+            count++;
+          }
+        }
+        if (count > bestCount) { bestCount = count; best = delimiter; }
+      }
+      return best;
+    }
+
+    // A small CSV parser supporting quoted fields, escaped quotes, and line breaks.
+    function parseDelimited(text, delimiter) {
+      const rows = [];
+      let row = [];
+      let field = "";
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '"') {
+          if (inQuotes && text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = !inQuotes;
+        } else if (ch === delimiter && !inQuotes) {
+          row.push(field); field = "";
+        } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+          if (ch === "\r" && text[i + 1] === "\n") i++;
+          row.push(field);
+          if (row.some(value => value.trim() !== "")) rows.push(row);
+          row = []; field = "";
+        } else {
+          field += ch;
+        }
+      }
+      if (inQuotes) throw new Error("The input contains an unclosed quoted field.");
+      row.push(field);
+      if (row.some(value => value.trim() !== "")) rows.push(row);
+      return rows;
+    }
+
+    function parseDataset(text, hasHeader) {
+      const cleanText = text.replace(/^\uFEFF/, "");
+      const delimiter = detectDelimiter(cleanText);
+      const rows = parseDelimited(cleanText, delimiter);
+      if (rows.length === 0) throw new Error("No data was found. Enter at least two observations for two categorical variables.");
+
+      let variableX = "Variable X";
+      let variableF = "Variable F";
+      let startIndex = 0;
+      if (hasHeader) {
+        if (rows[0].length !== 2 || !rows[0][0].trim() || !rows[0][1].trim()) {
+          throw new Error("The header must contain exactly two non-empty column names.");
+        }
+        variableX = rows[0][0].trim();
+        variableF = rows[0][1].trim();
+        startIndex = 1;
+      }
+
+      const observations = [];
+      for (let i = startIndex; i < rows.length; i++) {
+        if (rows[i].length !== 2) {
+          throw new Error(`Data row ${i + 1} has ${rows[i].length} columns; exactly two are required.`);
+        }
+        const x = rows[i][0].trim();
+        const f = rows[i][1].trim();
+        if (!x || !f) throw new Error(`Data row ${i + 1} contains an empty value.`);
+        observations.push([x, f]);
+      }
+      if (observations.length === 0) throw new Error("No observations remain after reading the header.");
+
+      const categoriesX = [...new Set(observations.map(item => item[0]))];
+      const categoriesF = [...new Set(observations.map(item => item[1]))];
+      if (categoriesX.length < 2 || categoriesF.length < 2) {
+        throw new Error("Each variable must contain at least two distinct categories to perform this test.");
+      }
+      return { variableX, variableF, observations, categoriesX, categoriesF };
+    }
+
+    // Lanczos approximation for ln(Gamma(z)).
+    function logGamma(z) {
+      const coefficients = [
+        676.5203681218851, -1259.1392167224028, 771.32342877765313,
+        -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+        9.9843695780195716e-6, 1.5056327351493116e-7
+      ];
+      if (z < 0.5) return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * z)) - logGamma(1 - z);
+      z -= 1;
+      let x = 0.99999999999980993;
+      for (let i = 0; i < coefficients.length; i++) x += coefficients[i] / (z + i + 1);
+      const t = z + coefficients.length - 0.5;
+      return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+    }
+
+    // Regularized upper incomplete gamma Q(a, x), used for the chi-square upper-tail p-value.
+    function gammaQ(a, x) {
+      if (a <= 0 || x < 0 || !Number.isFinite(a) || !Number.isFinite(x)) return NaN;
+      if (x === 0) return 1;
+      const EPS = 3e-14;
+      const FPMIN = 1e-300;
+      const MAX_ITER = 10000;
+      const factor = Math.exp(-x + a * Math.log(x) - logGamma(a));
+
+      if (x < a + 1) {
+        let ap = a;
+        let term = 1 / a;
+        let sum = term;
+        for (let n = 1; n <= MAX_ITER; n++) {
+          ap += 1;
+          term *= x / ap;
+          sum += term;
+          if (Math.abs(term) < Math.abs(sum) * EPS) break;
+        }
+        const p = sum * factor;
+        return Math.max(0, Math.min(1, 1 - p));
+      }
+
+      let b = x + 1 - a;
+      let c = 1 / FPMIN;
+      let d = 1 / b;
+      let h = d;
+      for (let i = 1; i <= MAX_ITER; i++) {
+        const an = -i * (i - a);
+        b += 2;
+        d = an * d + b;
+        if (Math.abs(d) < FPMIN) d = FPMIN;
+        c = b + an / c;
+        if (Math.abs(c) < FPMIN) c = FPMIN;
+        d = 1 / d;
+        const delta = d * c;
+        h *= delta;
+        if (Math.abs(delta - 1) < EPS) break;
+      }
+      return Math.max(0, Math.min(1, factor * h));
+    }
+
+    function analyze(data, alpha) {
+      const { observations, categoriesX, categoriesF } = data;
+      const r = categoriesX.length;
+      const c = categoriesF.length;
+      const N = observations.length;
+      const rowIndex = new Map(categoriesX.map((value, index) => [value, index]));
+      const colIndex = new Map(categoriesF.map((value, index) => [value, index]));
+      const observed = Array.from({ length: r }, () => Array(c).fill(0));
+      for (const [x, f] of observations) observed[rowIndex.get(x)][colIndex.get(f)]++;
+
+      const rowTotals = observed.map(row => row.reduce((sum, value) => sum + value, 0));
+      const colTotals = Array.from({ length: c }, (_, j) => observed.reduce((sum, row) => sum + row[j], 0));
+      const expected = Array.from({ length: r }, (_, i) =>
+        Array.from({ length: c }, (_, j) => rowTotals[i] * colTotals[j] / N)
+      );
+      const contributions = Array.from({ length: r }, (_, i) =>
+        Array.from({ length: c }, (_, j) => {
+          const e = expected[i][j];
+          return e > 0 ? Math.pow(observed[i][j] - e, 2) / e : 0;
+        })
+      );
+      const chiSquare = contributions.flat().reduce((sum, value) => sum + value, 0);
+      const df = (r - 1) * (c - 1);
+      const pValue = gammaQ(df / 2, chiSquare / 2);
+      const expectedValues = expected.flat();
+      const belowFive = expectedValues.filter(value => value < 5).length;
+      const belowOne = expectedValues.filter(value => value < 1).length;
+      const allExpectedAtLeastFive = belowFive === 0;
+      const smallExpectedWarning = belowOne > 0 || belowFive / expectedValues.length > 0.2;
+
+      return {
+        ...data, alpha, N, r, c, observed, rowTotals, colTotals, expected,
+        contributions, chiSquare, df, pValue, belowFive, belowOne,
+        allExpectedAtLeastFive, smallExpectedWarning
+      };
+    }
+
+    function formatNumber(value, digits = 3) {
+      return Number(value).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    }
+    function formatPercent(value) { return `${(100 * value).toFixed(1)}%`; }
+
+    function createTable(headers, rows, footer = null) {
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const label of headers) {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = label;
+        headRow.appendChild(th);
+      }
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+      const tbody = document.createElement("tbody");
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        row.forEach((value, index) => {
+          const td = document.createElement("td");
+          td.textContent = String(value);
+          if (index === 0) td.style.textAlign = "left";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      if (footer) {
+        const tfoot = document.createElement("tfoot");
+        const tr = document.createElement("tr");
+        footer.forEach((value, index) => {
+          const td = document.createElement("td");
+          td.textContent = String(value);
+          if (index === 0) td.style.textAlign = "left";
+          tr.appendChild(td);
+        });
+        tfoot.appendChild(tr);
+        table.appendChild(tfoot);
+      }
+      return table;
+    }
+
+    function replaceWithTable(containerId, headers, rows, footer = null) {
+      const container = document.getElementById(containerId);
+      container.replaceChildren(createTable(headers, rows, footer));
+    }
+
+    function addMetric(container, name, value) {
+      const card = document.createElement("div");
+      card.className = "metric";
+      const title = document.createElement("span");
+      title.className = "name";
+      title.textContent = name;
+      const number = document.createElement("span");
+      number.className = "value";
+      number.textContent = value;
+      card.append(title, number);
+      container.appendChild(card);
+    }
+
+    function renderResults(result) {
+      const { variableX, variableF, categoriesX, categoriesF, N, r, c,
+        observed, rowTotals, colTotals, expected, contributions,
+        chiSquare, df, pValue, alpha, belowFive, belowOne, smallExpectedWarning } = result;
+
+      document.getElementById("dataset-description").textContent =
+        `${N} observations · ${variableX}: ${r} categories · ${variableF}: ${c} categories`;
+
+      const metrics = document.getElementById("metrics");
+      metrics.replaceChildren();
+      addMetric(metrics, "Sample size (N)", String(N));
+      addMetric(metrics, "Chi-square statistic", formatNumber(chiSquare, 4));
+      addMetric(metrics, "Degrees of freedom", String(df));
+      addMetric(metrics, "p-value", pValue < 0.000001 ? "< 0.000001" : formatNumber(pValue, 6));
+
+      const decision = document.getElementById("decision");
+      decision.className = `decision ${pValue < alpha ? "reject" : "retain"}`;
+      const decisionTitle = document.createElement("strong");
+      decisionTitle.textContent = pValue < alpha ? "Reject the null hypothesis" : "Fail to reject the null hypothesis";
+      const decisionText = document.createElement("span");
+      decisionText.textContent = pValue < alpha
+        ? `Because p = ${pValue < 0.000001 ? "< 0.000001" : formatNumber(pValue, 6)} is below α = ${alpha}, the data provide statistically significant evidence of an association between ${variableX} and ${variableF}.`
+        : `Because p = ${formatNumber(pValue, 6)} is not below α = ${alpha}, the data do not provide sufficient evidence of an association between ${variableX} and ${variableF}. This is not proof that the variables are independent.`;
+      decision.replaceChildren(decisionTitle, decisionText);
+
+      const warning = document.getElementById("assumption-warning");
+      warning.replaceChildren();
+      if (smallExpectedWarning) {
+        const box = document.createElement("div");
+        box.className = "warning";
+        box.textContent = `Expected-count warning: ${belowFive} of ${r * c} cells have expected counts below 5, and ${belowOne} are below 1. The usual large-sample chi-square approximation may be unreliable. Consider combining substantively similar categories or using an exact/Monte Carlo method appropriate for the table.`;
+        warning.appendChild(box);
+      } else {
+        const box = document.createElement("p");
+        box.className = "small muted";
+        box.textContent = "Expected-count check: all cells have expected counts of at least 5, so the common rule-of-thumb condition is satisfied.";
+        warning.appendChild(box);
+      }
+
+      const marginalRows = [
+        ...categoriesX.map((category, i) => [variableX, category, String(rowTotals[i]), formatPercent(rowTotals[i] / N)]),
+        ...categoriesF.map((category, j) => [variableF, category, String(colTotals[j]), formatPercent(colTotals[j] / N)])
+      ];
+      replaceWithTable("marginal-table", ["Variable", "Category", "Marginal count", "Marginal frequency"], marginalRows);
+
+      const observedRows = categoriesX.map((category, i) => [
+        category,
+        ...observed[i].map(String),
+        String(rowTotals[i])
+      ]);
+      const observedFooter = ["Column total", ...colTotals.map(String), String(N)];
+      replaceWithTable("observed-table", [variableX, ...categoriesF, "Row total"], observedRows, observedFooter);
+
+      const rowConditionalRows = categoriesX.map((category, i) => [
+        category,
+        ...observed[i].map(value => formatPercent(value / rowTotals[i])),
+        String(rowTotals[i])
+      ]);
+      replaceWithTable("row-conditional", [variableX, ...categoriesF.map(category => `${category}`), "n"], rowConditionalRows);
+
+      const columnConditionalRows = categoriesF.map((category, j) => [
+        category,
+        ...categoriesX.map((_, i) => formatPercent(observed[i][j] / colTotals[j])),
+        String(colTotals[j])
+      ]);
+      replaceWithTable("column-conditional", [variableF, ...categoriesX, "n"], columnConditionalRows);
+
+      const expectedRows = [];
+      for (let i = 0; i < r; i++) {
+        for (let j = 0; j < c; j++) {
+          expectedRows.push([
+            categoriesX[i], categoriesF[j], String(observed[i][j]),
+            formatNumber(expected[i][j], 3), formatNumber(contributions[i][j], 4)
+          ]);
+        }
+      }
+      replaceWithTable("expected-table", [variableX, variableF, "Observed (O)", "Expected (E)", "(O − E)² / E"], expectedRows);
+
+      const interpretation = document.getElementById("interpretation");
+      interpretation.textContent = pValue < alpha
+        ? `At the ${formatPercent(alpha)} significance level, the null hypothesis of independence is rejected. The sample contains evidence that the distribution of ${variableF} differs across categories of ${variableX} (equivalently, the variables are statistically associated). The chi-square test does not measure the strength or practical importance of that association.`
+        : `At the ${formatPercent(alpha)} significance level, the null hypothesis of independence is not rejected. The observed differences are not statistically significant under this test. The result should be described as insufficient evidence against independence, rather than as confirmation that the variables are independent.`;
+
+      resultsSection.hidden = false;
+      document.getElementById("downloadBtn").disabled = false;
+      resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function showStatus(message, type) {
+      statusBox.textContent = message;
+      statusBox.className = type;
+    }
+
+    function runAnalysis() {
+      try {
+        const data = parseDataset(datasetInput.value, document.getElementById("hasHeader").checked);
+        const alpha = Number(document.getElementById("alpha").value);
+        lastAnalysis = analyze(data, alpha);
+        renderResults(lastAnalysis);
+        showStatus("Analysis completed successfully.", "info");
+      } catch (error) {
+        lastAnalysis = null;
+        document.getElementById("downloadBtn").disabled = true;
+        showStatus(error instanceof Error ? error.message : "An unexpected error occurred.", "error");
+      }
+    }
+
+    function downloadResults() {
+      if (!lastAnalysis) return;
+      const result = lastAnalysis;
+      const lines = [
+        ["Variable X", "Variable F", "Observed", "Expected", "Chi-square contribution"],
+      ];
+      for (let i = 0; i < result.r; i++) {
+        for (let j = 0; j < result.c; j++) {
+          lines.push([
+            result.categoriesX[i], result.categoriesF[j], result.observed[i][j],
+            result.expected[i][j].toFixed(6), result.contributions[i][j].toFixed(6)
+          ]);
+        }
+      }
+      lines.push([]);
+      lines.push(["Sample size", result.N]);
+      lines.push(["Chi-square statistic", result.chiSquare]);
+      lines.push(["Degrees of freedom", result.df]);
+      lines.push(["p-value", result.pValue]);
+      lines.push(["Significance level", result.alpha]);
+      const csv = lines.map(row => row.map(value => {
+        const text = String(value ?? "");
+        return `"${text.replace(/"/g, '""')}"`;
+      }).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "chi_square_independence_results.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    datasetInput.addEventListener("input", () => {
+      lastAnalysis = null;
+      document.getElementById("downloadBtn").disabled = true;
+      showStatus("The dataset has changed. Run the analysis again before downloading results.", "info");
+    });
+    document.getElementById("alpha").addEventListener("change", () => {
+      lastAnalysis = null;
+      document.getElementById("downloadBtn").disabled = true;
+      showStatus("The significance level has changed. Run the analysis again to update the decision.", "info");
+    });
+    document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
+    document.getElementById("sampleBtn").addEventListener("click", () => {
+      datasetInput.value = buildSampleData();
+      document.getElementById("hasHeader").checked = true;
+      document.getElementById("alpha").value = "0.05";
+      showStatus("The sample dataset has been restored.", "info");
+      runAnalysis();
+    });
+    document.getElementById("downloadBtn").addEventListener("click", downloadResults);
+
+    // Run once on page load so that the example's full output is immediately visible.
+    runAnalysis();
+  </script>
+</body>
+</html>
